@@ -1,11 +1,11 @@
-import os
+import os, copy
 
 class Game():
-    def __init__(self, cont):
+    def __init__(self):
         self.__board = [[" "," "," "],[" "," "," "],[" "," "," "]]
         self.__winner = None
         self.__gameState = "X" # X, O, end
-        self.__control = cont
+        self.__control = Engine()
         self.__aiTurn = None
         self.__computer = None
 
@@ -62,11 +62,11 @@ class Game():
 
         while self.gameState == "X" or self.gameState == "O":
             if self.aiTurn == True:
-                self.setPiece(computer.passMove(self))
+                self.setPiece(self.computer.passMove(self))
                 self.control.renderFrame(self)
             else:
                 self.control.renderFrame(self)
-                self.setPiece(self.control.passInput())
+                self.setPiece(self.control.passInput(self))
             self.evaluateBoard()
 
         self.control.renderFrame(self)
@@ -125,7 +125,7 @@ class Game():
             return ""
         
     def changePlayer(self):
-        if self.aiTurn == True:
+        if self.aiTurn:
             self.aiTurn = False
         else:
             self.aiTurn = True
@@ -160,7 +160,7 @@ class Game():
         self.runGame(start, prune, monitor)
 
     def setGameState(self, board):
-        self.board = board
+        self.board = copy.deepcopy(board)
         cnt = 0
 
         for row in board:
@@ -176,16 +176,29 @@ class Game():
         else:
             self.gameState = "X"
 
-    def clone(self):
-        clone = Game()
-        clone.board = self.board[:]
-        clone.gameState = self.gameState
-        clone.aiTurn = self.aiTurn
-        clone.winner = self.winner
-        return clone
+    def checkCellAvailable(self, t):
+        if self.board[t[0]][t[1]] == ' ':
+            return True
+        else:
+            return False
 
-    def checkCellAvailable(self):
-        pass
+    def boardStateOutput(self):
+        output = ''
+
+        for i in range(0,3):
+            for j in range(0,3):
+                output += f'|{self.board[i][j]}'
+            output += '|\n'
+
+        return output
+
+    def endGameOutput(self):
+        if self.winner == 'X':
+            return "X is the winner!"
+        if self.winner == 'O':
+            return "O is the winner!"
+        else:
+            return "Game is a draw!"
 
 class AI():
     def __init__(self, prune, monitor):
@@ -198,17 +211,17 @@ class AI():
     
     @property
     def monitor(self):
-        return self.__prune
+        return self.__monitor
 
     def passMove(self, game):
         coordsList = list()
-        ev, alpha, beta = int(), -2, 2
+        alpha, beta = -2, 2
 
         for i in range(0,3):
             for j in range(0,3):
                 if game.board[i][j] == " ":
-                    coords = (i,j)
-                    passToEval = game.clone()
+                    coords = [i,j]
+                    passToEval = copy.deepcopy(game)
                     passToEval.setPiece(coords)
 
                     if self.prune:
@@ -221,25 +234,25 @@ class AI():
                             break
                     else:
                         ev = self.minimax(passToEval)
-                        coordsList.append((coordsList, ev))
+                        coordsList.append((coords, ev))
         
-        sorted(coordsList, key=lambda x:x[1])
+        coordsList = sorted(coordsList, key=lambda x:x[1])
         return coordsList[0][0]
     
     def minimax(self, game):
         game.evaluateBoard()
 
         if self.monitor:
-            print(game)
+            print(game.boardStateOutput() + f'Turn to play:{game.aiTurn}, Game state:{game.gameState}, Winner: {game.winner}\n')
             input("Pritisnite enter za nastavak!")
 
         if game.gameState == "end":
-            if not game.winner:
+            if game.winner == '':
                 return 0
             elif game.aiTurn:
-                return -1
-            else:
                 return 1
+            else:
+                return -1
         
         if game.aiTurn:
             maxEval = -1
@@ -247,19 +260,19 @@ class AI():
             for i in range(0,3):
                 for j in range(0,3):
                     if game.board[i][j] == " ":
-                        passToEval = game.clone()
+                        passToEval = copy.deepcopy(game)
                         passToEval.setPiece((i,j))
                         ev = self.minimax(passToEval)
                         maxEval = max(ev, maxEval)
             
             return maxEval
         else:
-            minEval = -1
+            minEval = 1
 
             for i in range(0,3):
                 for j in range(0,3):
                     if game.board[i][j] == " ":
-                        passToEval = game.clone()
+                        passToEval = copy.deepcopy(game)
                         passToEval.setPiece((i,j))
                         ev = self.minimax(passToEval)
                         minEval = min(ev, minEval)
@@ -267,12 +280,52 @@ class AI():
             return minEval
 
     def minimaxWithPruning(self, game, alpha, beta):
-        pass
+        game.evaluateBoard()
+
+        if self.monitor:
+            print(game.boardStateOutput() + f'Turn to play:{game.aiTurn}, Game state:{game.gameState}, Winner: {game.winner}, Alpha:{alpha}, Beta:{beta}\n')
+            input("Pritisnite enter za nastavak!")
+
+        if game.gameState == "end":
+            if game.winner == '':
+                return 0
+            elif game.aiTurn:
+                return 1
+            else:
+                return -1
+        
+        if game.aiTurn:
+            maxEval = -1
+
+            for i in range(0,3):
+                for j in range(0,3):
+                    if game.board[i][j] == " ":
+                        passToEval = copy.deepcopy(game)
+                        passToEval.setPiece((i,j))
+                        ev = self.minimaxWithPruning(passToEval, alpha, beta)
+                        maxEval = max(ev, maxEval)
+
+                        alpha = max(ev, alpha)
+                        if beta <= alpha:
+                            break
+            return maxEval
+        else:
+            minEval = 1
+
+            for i in range(0,3):
+                for j in range(0,3):
+                    if game.board[i][j] == " ":
+                        passToEval = copy.deepcopy(game)
+                        passToEval.setPiece((i,j))
+                        ev = self.minimaxWithPruning(passToEval, alpha, beta)
+                        minEval = min(ev, minEval)
+
+                        alpha = min(ev, beta)
+                        if beta <= alpha:
+                            break
+            return minEval
 
 class Engine():
-    def __init__(self):
-        self.__game = Game(self)
-
     def renderFrame(self, game):
         os.system('cls' if os.name == 'nt' else 'clear')
         print(game.boardStateOutput())
@@ -283,12 +336,14 @@ class Engine():
 
     def passInput(self, game):
         while True:
-            i, j = input("Unesite koordinate: ").split(", ")
+            i, j = [int(i) for i in input("Unesite koordinate: ").split(", ")]
 
             if game.checkCellAvailable((i, j)):
                 break
 
-        return (i, j)
+        return [i, j]
 
-
-
+if __name__ == "__main__":
+    game = Game()
+    #game.runGame(False, False, False)
+    game.runSim(False, True, True, [['O', ' ', 'X'], ['X', ' ', ' '], ['X', 'O', 'O']])
