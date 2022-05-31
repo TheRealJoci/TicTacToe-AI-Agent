@@ -6,3 +6,9 @@ It is a simple terminal game to showcase AI Agent's ability to play the game.
 Algorithms showcased:
 * Minimax 
 * Alpha-beta Pruning
+
+**NOTE**
+
+After revisiting the project I found the bug with the AI and Python notebook implementation.
+
+Project will be reworked as a Django based web game. 
